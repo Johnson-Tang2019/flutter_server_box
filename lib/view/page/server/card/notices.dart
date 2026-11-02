@@ -188,6 +188,7 @@ class ServerCardNotice extends StatelessWidget {
     required this.form,
     this.openness = 0,
     this.onTap,
+    this.trailing,
   });
 
   final ServerNotice notice;
@@ -203,6 +204,9 @@ class ServerCardNotice extends StatelessWidget {
   /// doing and the copy button a bug report needs. Null on a card, where the
   /// card's own tap is the one that counts.
   final VoidCallback? onTap;
+
+  /// An action shown on the detail page in place of the error-detail chevron.
+  final Widget? trailing;
 
   /// Around the block at rest.
   static const _pad = EdgeInsets.symmetric(horizontal: 11, vertical: 9);
@@ -297,11 +301,7 @@ class ServerCardNotice extends StatelessWidget {
           blockSurfaceAt(t),
         ),
         radius: BorderRadius.lerp(_radius, CardX.borderRadius, t),
-        margin: EdgeInsets.lerp(
-          EdgeInsets.zero,
-          const EdgeInsets.all(4),
-          t,
-        ),
+        margin: EdgeInsets.lerp(EdgeInsets.zero, const EdgeInsets.all(4), t),
         child: Padding(
           padding: EdgeInsets.lerp(
             EdgeInsets.zero,
@@ -349,10 +349,7 @@ class ServerCardNotice extends StatelessWidget {
                 ),
               ),
             ),
-          if (mono != null) ...[
-            SizedBox(height: lerpDouble(3, 13, t)),
-            mono,
-          ],
+          if (mono != null) ...[SizedBox(height: lerpDouble(3, 13, t)), mono],
         ],
       ),
     );
@@ -378,11 +375,7 @@ class ServerCardNotice extends StatelessWidget {
             shown: t,
             child: Padding(
               padding: const EdgeInsets.only(bottom: 13),
-              child: Icon(
-                notice.glyph,
-                size: 56,
-                color: scheme.outlineVariant,
-              ),
+              child: Icon(notice.glyph, size: 56, color: scheme.outlineVariant),
             ),
           ),
           block,
@@ -428,17 +421,20 @@ class ServerCardNotice extends StatelessWidget {
           // a card there is no room to say it and nothing it would lead to
           // that tapping the card does not.
           SizedBox(width: 9 * t),
-          SizedBox(
-            width: 17 * t,
-            child: Opacity(
-              opacity: t,
-              child: const Icon(
-                Icons.chevron_right,
-                size: 17,
-                color: Colors.grey,
+          if (trailing != null)
+            trailing!
+          else
+            SizedBox(
+              width: 17 * t,
+              child: Opacity(
+                opacity: t,
+                child: const Icon(
+                  Icons.chevron_right,
+                  size: 17,
+                  color: Colors.grey,
+                ),
               ),
             ),
-          ),
         ],
       ),
     );

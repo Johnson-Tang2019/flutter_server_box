@@ -13,24 +13,53 @@ const _notice = ServerNotice(
 );
 
 void main() {
-  // A theme whose cards are outlined, as some store themes are.
-  Future<void> pump(WidgetTester tester, double openness) =>
-      tester.pumpWidget(
-        MaterialApp(
-          theme: ThemeData(
-            cardTheme: const CardThemeData(
-              shape: RoundedRectangleBorder(side: _side),
-            ),
-          ),
-          home: Scaffold(
-            body: ServerCardNotice(
-              notice: _notice,
-              form: ServerNoticeForm.page,
-              openness: openness,
+  testWidgets('failure refresh acts directly without opening error details', (
+    tester,
+  ) async {
+    var reconnects = 0;
+    var details = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ServerCardNotice(
+            notice: _notice,
+            form: ServerNoticeForm.card,
+            openness: 1,
+            onTap: () => details++,
+            trailing: IconButton(
+              tooltip: 'Reconnect',
+              icon: const Icon(Icons.refresh),
+              onPressed: () => reconnects++,
             ),
           ),
         ),
-      );
+      ),
+    );
+    await tester.tap(find.byIcon(Icons.refresh));
+    expect(reconnects, 1);
+    expect(details, 0);
+    await tester.tap(find.text(_notice.title));
+    expect(details, 1);
+    expect(tester.takeException(), isNull);
+  });
+
+  // A theme whose cards are outlined, as some store themes are.
+  Future<void> pump(WidgetTester tester, double openness) => tester.pumpWidget(
+    MaterialApp(
+      theme: ThemeData(
+        cardTheme: const CardThemeData(
+          shape: RoundedRectangleBorder(side: _side),
+        ),
+      ),
+      home: Scaffold(
+        body: ServerCardNotice(
+          notice: _notice,
+          form: ServerNoticeForm.page,
+          openness: openness,
+        ),
+      ),
+    ),
+  );
 
   testWidgets("on the card, the machine's words have no outline of their own", (
     tester,

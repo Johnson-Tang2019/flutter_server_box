@@ -102,10 +102,8 @@ extension on _ServerDetailPageState {
     );
     final edit = Btn.text(
       text: libL10n.edit,
-      onTap: () => ServerEditPage.route.go(
-        context,
-        args: ServerEditArgs(si.spi),
-      ),
+      onTap: () =>
+          ServerEditPage.route.go(context, args: ServerEditArgs(si.spi)),
     );
 
     return switch (notice.kind) {
@@ -128,10 +126,7 @@ extension on _ServerDetailPageState {
         // around it — what the app was doing, and the copy button a bug
         // report needs.
         if (si.status.err case final err?)
-          Btn.text(
-            text: l10n.viewError,
-            onTap: () => _showErrDetail(si, err),
-          ),
+          Btn.text(text: l10n.viewError, onTap: () => _showErrDetail(si, err)),
         edit,
       ],
       // Nothing to do about a machine that is still on its way.
@@ -161,7 +156,10 @@ ${err.message ?? 'null'}
     try {
       await ref
           .read(serversProvider.notifier)
-          .updateServer(si.spi, si.spi.copyWith(monitorHttp: monitor.allowingInsecure()));
+          .updateServer(
+            si.spi,
+            si.spi.copyWith(monitorHttp: monitor.allowingInsecure()),
+          );
     } catch (e, s) {
       if (mounted) context.showErrDialog(e, s);
     }
@@ -228,6 +226,14 @@ ${err.message ?? 'null'}
       form: ServerNoticeForm.card,
       openness: 1,
       onTap: () => _showErrDetail(si, err),
+      trailing: IconButton(
+        tooltip: l10n.reconnect,
+        icon: const Icon(Icons.refresh),
+        onPressed:
+            si.conn == ServerConn.connecting || si.conn == ServerConn.loading
+            ? null
+            : () => _reconnect(si),
+      ),
     );
   }
 
@@ -251,7 +257,10 @@ ${err.message ?? 'null'}
             child: Text(l10n.monitorAllowInsecureHttp),
           ),
         TextButton(onPressed: () => Pfs.copy(md), child: Text(libL10n.copy)),
-        TextButton(onPressed: () => context.popDialog(), child: Text(libL10n.close)),
+        TextButton(
+          onPressed: () => context.popDialog(),
+          child: Text(libL10n.close),
+        ),
       ],
     );
   }
