@@ -27,3 +27,16 @@ Upstream: https://github.com/lollipopkit/flutter_server_box
 
 Base commit: `605aca4f6aad47e9aee9a6386858d39c79fc3382`.
 The original AGPL-3.0 license is retained.
+
+## Reconnect from a failed detail page
+
+When a previously sampled server fails, its error notice above the charts now
+shows a refresh icon with a Reconnect tooltip. Pressing it resets the retry
+limiter and retries the current server directly. The button is disabled while
+connecting or loading. Pressing the error text still opens error details.
+
+Validated on Windows with Flutter 3.47.9 / Dart 3.13.7:
+
+- 24 GPU history, picker and chart-window unit tests passed.
+- 3 notice widget tests passed, including separate refresh and details actions.
+- Static analysis of changed Dart files passed without issues.
