@@ -1,3 +1,4 @@
+import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:server_box/view/page/server/chart.dart';
@@ -8,6 +9,21 @@ import 'package:server_box/view/page/server/chart.dart';
 /// its chart — and the two stretches it left were widest on the machine that
 /// had only just answered, which is the one being looked at.
 void main() {
+  test('GPU curves break across missing samples', () {
+    const gpu = HistorySeries('GPU', Colors.blue, [
+      10,
+      null,
+      30,
+    ], breakOnMissing: true);
+    final spots = gpu.spotsAgainst([1000, 2000, 3000]);
+    expect(spots, [
+      const FlSpot(1000, 10),
+      FlSpot.nullSpot,
+      const FlSpot(3000, 30),
+    ]);
+    expect(gpu.hasSpots, isTrue);
+  });
+
   HistorySeries series(List<double?> values) =>
       HistorySeries('s', Colors.blue, values);
 
@@ -47,41 +63,44 @@ void main() {
   });
 
   test('runs on to the clock once the readings have stopped', () {
-    final window = watchedWindow(
-      times,
-      [
-        series([1, 2, 3, 4]),
-      ],
-      until: 310000,
-    );
+    final window = watchedWindow(times, [
+      series([1, 2, 3, 4]),
+    ], until: 310000);
     expect(window, (from: 1000, to: 310000));
   });
 
   test('but never back from the last sample', () {
     // A machine whose clock is ahead of this one reports samples from what is
     // the future here.
-    final window = watchedWindow(
-      times,
-      [
-        series([1, 2, 3, 4]),
-      ],
-      until: 9000,
-    );
+    final window = watchedWindow(times, [
+      series([1, 2, 3, 4]),
+    ], until: 9000);
     expect(window?.to, 10000);
   });
 
   test('is nothing when there is nothing to draw', () {
     expect(watchedWindow(const [], [series(const [])]), isNull);
-    expect(watchedWindow(times, [series([null, null, null, null])]), isNull);
+    expect(
+      watchedWindow(times, [
+        series([null, null, null, null]),
+      ]),
+      isNull,
+    );
     expect(watchedWindow(times, const []), isNull);
   });
 
-  test('a series longer than the instants it has is read as far as they go', () {
-    // The two are built together; a mismatch means the buffer moved under the
-    // build, and that is not worth a range error.
-    final window = watchedWindow(const [1000, 4000], [
-      series([null, null, 5]),
-    ]);
-    expect(window, isNull);
-  });
+  test(
+    'a series longer than the instants it has is read as far as they go',
+    () {
+      // The two are built together; a mismatch means the buffer moved under the
+      // build, and that is not worth a range error.
+      final window = watchedWindow(
+        const [1000, 4000],
+        [
+          series([null, null, 5]),
+        ],
+      );
+      expect(window, isNull);
+    },
+  );
 }

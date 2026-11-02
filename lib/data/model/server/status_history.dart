@@ -40,6 +40,10 @@ class StatusHistory {
   /// Percent. The busiest GPU, for hosts that report one at all.
   final gpu = Fifo<double?>(capacity: capacity);
 
+  /// Per-GPU utilization history. IDs are stable for each GPU on a server.
+  final _gpus = _DeviceHistory();
+  Map<String, List<double?>> get gpusByDevice => _gpus.byDevice;
+
   /// Celsius. The aggregate reading, kept for sources that only expose one
   /// (and for [seed], since monitor's stored history has a single column).
   final temp = Fifo<double?>(capacity: capacity);
@@ -81,6 +85,7 @@ class StatusHistory {
     double? diskRead,
     double? diskWrite,
     double? gpu,
+    Map<String, double>? gpus,
     double? temp,
     Map<String, double>? temps,
     Map<String, double>? diskReads,
@@ -110,6 +115,7 @@ class StatusHistory {
     // `time` already holds this sample, so a series appearing now is padded to
     // one short of it.
     _temps.add(temps, time.length);
+    _gpus.add(gpus, time.length);
     _diskReads.add(diskReads, time.length);
     _diskWrites.add(diskWrites, time.length);
     _netRx.add(netRxs, time.length);
@@ -158,10 +164,23 @@ class StatusHistory {
   /// The sample at [i] as a call that appends it again, devices included.
   void Function() _sampleAt(int i) {
     final (t, c, m, sw, d, rx, tx, dr, dw, g, te, b) = (
-      time[i], cpu[i], mem[i], swap[i], disk[i], netRx[i], netTx[i],
-      diskRead[i], diskWrite[i], gpu[i], temp[i], battery[i],
+      time[i],
+      cpu[i],
+      mem[i],
+      swap[i],
+      disk[i],
+      netRx[i],
+      netTx[i],
+      diskRead[i],
+      diskWrite[i],
+      gpu[i],
+      temp[i],
+      battery[i],
     );
-    final temps = _temps.at(i), reads = _diskReads.at(i), writes = _diskWrites.at(i);
+    final temps = _temps.at(i),
+        reads = _diskReads.at(i),
+        writes = _diskWrites.at(i);
+    final gpus = _gpus.at(i);
     final rxs = _netRx.at(i), txs = _netTx.at(i);
     return () => add(
       timeMs: t,
@@ -174,6 +193,7 @@ class StatusHistory {
       diskRead: dr,
       diskWrite: dw,
       gpu: g,
+      gpus: gpus,
       temp: te,
       temps: temps,
       diskReads: reads,
@@ -185,10 +205,23 @@ class StatusHistory {
   }
 
   void _clear() {
-    for (final f in [time, cpu, mem, swap, disk, netRx, netTx, diskRead, diskWrite, gpu, temp, battery]) {
+    for (final f in [
+      time,
+      cpu,
+      mem,
+      swap,
+      disk,
+      netRx,
+      netTx,
+      diskRead,
+      diskWrite,
+      gpu,
+      temp,
+      battery,
+    ]) {
       f.clear();
     }
-    for (final d in [_temps, _diskReads, _diskWrites, _netRx, _netTx]) {
+    for (final d in [_temps, _gpus, _diskReads, _diskWrites, _netRx, _netTx]) {
       d.byDevice.clear();
     }
   }

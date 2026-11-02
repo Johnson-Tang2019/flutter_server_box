@@ -113,7 +113,7 @@ class DetailMetric {
     kind: kind,
     label: label,
     icon: icon,
-        value: l10n.unavailable,
+    value: l10n.unavailable,
     note: error,
     bigNote: '',
     series: const [],
@@ -232,7 +232,7 @@ DetailMetric _failedMetric(
   kind: kind,
   label: label,
   icon: icon,
-    value: '',
+  value: '',
   note: '',
   bigNote: '',
   series: const [],
@@ -294,6 +294,7 @@ List<DetailMetric> serverDetailMetrics(
   ServerState si,
   MetricWindow w, {
   required List<HistorySeries>? Function(ServerMetricKind kind) deviceSeries,
+  String? focusedGpuId,
 }) {
   final ss = si.status;
   if (serverNeverSampled(si)) return _blankMetrics();
@@ -372,7 +373,10 @@ List<DetailMetric> serverDetailMetrics(
         bigNote: l10n.ofFmt(total),
         percent: used / 100,
         stats: [
-          (k: 'cached', v: ReadingFmt.pct(ss.swap.cached / ss.swap.total * 100)),
+          (
+            k: 'cached',
+            v: ReadingFmt.pct(ss.swap.cached / ss.swap.total * 100),
+          ),
         ],
         series: [HistorySeries('Swap', ChartPalette.accent, w.swap)],
         format: ReadingFmt.pct,
@@ -549,7 +553,9 @@ List<DetailMetric> serverDetailMetrics(
   // is doing is one percentage with a line behind it. What it cannot be read
   // off a line — the processes holding its memory, its clock and fans — is
   // the card below, which is what a card is for.
-  if (busiestGpu(ss) case final gpu?) {
+  final focusedGpu = ss.gpus.firstWhereOrNull((gpu) => gpu.id == focusedGpuId);
+  final gpuToShow = focusedGpu ?? busiestGpu(ss);
+  if (gpuToShow case final gpu?) {
     final mem = gpu.memory;
     final used = gpu.utilization;
     views.add(
@@ -558,7 +564,7 @@ List<DetailMetric> serverDetailMetrics(
         label: 'GPU',
         icon: ServerDetailCards.gpu.icon,
         value: ReadingFmt.pct(used),
-        note: ss.gpus.length > 1
+        note: ss.gpus.length > 1 && focusedGpu == null
             ? _busiestNote(ss.gpus.length, gpu.name)
             : gpu.name,
         // The card's own, which this line takes over from. It carried the
@@ -571,7 +577,9 @@ List<DetailMetric> serverDetailMetrics(
           if (gpu.temperature case final t?)
             (k: libL10n.temperature, v: ReadingFmt.temp(t.toDouble())),
         ],
-        series: [HistorySeries('GPU', ChartPalette.accent, w.gpu)],
+        series:
+            deviceSeries(ServerMetricKind.gpu) ??
+            [HistorySeries('GPU', ChartPalette.accent, w.gpu)],
         format: ReadingFmt.pct,
       ),
     );
@@ -613,7 +621,9 @@ List<DetailMetric> serverDetailMetrics(
         stats: [
           if (battery.cycle case final cycle?) (k: l10n.cycle, v: '$cycle'),
         ],
-        series: [HistorySeries(libL10n.battery, ChartPalette.accent, w.battery)],
+        series: [
+          HistorySeries(libL10n.battery, ChartPalette.accent, w.battery),
+        ],
         format: ReadingFmt.pct,
       ),
     );
@@ -665,5 +675,7 @@ List<MetricStat> _rateStats(List<double?> values, {String prefix = ''}) {
     if (v == null) continue;
     if (peak == null || v > peak) peak = v;
   }
-  return [if (peak != null) (k: l10n.peak, v: '$prefix${ReadingFmt.rate(peak)}')];
+  return [
+    if (peak != null) (k: l10n.peak, v: '$prefix${ReadingFmt.rate(peak)}'),
+  ];
 }

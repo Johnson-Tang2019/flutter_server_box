@@ -8,10 +8,14 @@ extension on _ServerDetailPageState {
   List<String> _plottedDevices(ServerMetricKind kind, MetricDevices devices) {
     final picked = _devicePick[kind];
     if (picked == null) return devices.defaults;
-    return [
+    final available = [
       for (final name in devices.names)
         if (picked.contains(name)) name,
     ];
+    // A detached GPU must not leave the chart empty forever.
+    return kind == ServerMetricKind.gpu && available.isEmpty
+        ? devices.defaults
+        : available;
   }
 
   /// One line per device, or null where the aggregate is what there is: a
@@ -31,13 +35,20 @@ extension on _ServerDetailPageState {
         for (final (i, name) in plotted.indexed)
           HistorySeries(
             devices.legend?.call(name) ?? name,
-            ChartPalette.lines[i % kMaxDeviceLines],
+            ChartPalette.lines[(kind == ServerMetricKind.gpu
+                    ? devices.names.indexOf(name)
+                    : i) %
+                kMaxDeviceLines],
             devices.byDevice[name] ?? const <double?>[],
+            breakOnMissing: kind == ServerMetricKind.gpu,
           ),
     ];
     // Before the first sample of a device that only just appeared there is
     // nothing under its name, and a legend of empty lines is worse than the
     // totals.
+    // For GPUs, returning the aggregate as fallback would show the busiest
+    // GPU while labelling it as a different one with no utilization data.
+    if (kind == ServerMetricKind.gpu) return series;
     return series.any((s) => s.hasSpots) ? series : null;
   }
 }
@@ -67,10 +78,18 @@ extension on _ServerDetailPageState {
   /// is — see [_ServerDetailPageState._focus].
   Widget _buildMetrics(ServerState si, {required bool wide}) {
     final window = _window(si);
+    // The headline should agree with a single explicitly plotted GPU.
+    final gpuDevices = _custom == null && _range == HistoryRange.live
+        ? MetricDevices.of(si, ServerMetricKind.gpu)
+        : null;
+    final plottedGpuIds = gpuDevices == null
+        ? const <String>[]
+        : _plottedDevices(ServerMetricKind.gpu, gpuDevices);
     final views = serverDetailMetrics(
       si,
       window,
       deviceSeries: (kind) => _deviceSeries(si, kind),
+      focusedGpuId: plottedGpuIds.length == 1 ? plottedGpuIds.single : null,
     );
     if (views.isEmpty) return UIs.placeholder;
     final staleAt = serverStaleSince(si);
@@ -524,7 +543,7 @@ extension on _ServerDetailPageState {
                 for (final name in devices.names)
                   ListTile(
                     selected: plotted.contains(name),
-                    title: Text(name),
+                    title: Text(devices.label?.call(name) ?? name),
                     subtitle: Text(
                       devices.subtitle(name),
                       style: UIs.text12Grey,

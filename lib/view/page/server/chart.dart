@@ -248,7 +248,6 @@ class MetricChart extends StatelessWidget {
   }
 }
 
-
 /// One line. Reads straight off a [StatusHistory] ring buffer, whose gaps are
 /// `null` for "not measured at that sample" — those points are skipped rather
 /// than plotted as 0, so an interface that only just appeared doesn't drag the
@@ -258,7 +257,14 @@ class HistorySeries {
   final Color color;
   final List<double?> values;
 
-  const HistorySeries(this.label, this.color, this.values);
+  final bool breakOnMissing;
+
+  const HistorySeries(
+    this.label,
+    this.color,
+    this.values, {
+    this.breakOnMissing = false,
+  });
 
   /// Whether there is anything to draw, which is what every caller asking for
   /// [spots] was really asking.
@@ -272,11 +278,11 @@ class HistorySeries {
   /// build, not that the reading happened at the epoch.
   List<FlSpot> spotsAgainst(List<int> times) => [
     for (var i = 0; i < values.length; i++)
-      if (values[i] case final v?)
-        if (times.isEmpty)
-          FlSpot(i.toDouble(), v)
-        else if (i < times.length)
-          FlSpot(times[i].toDouble(), v),
+      if (times.isEmpty || i < times.length)
+        if (values[i] case final v?)
+          FlSpot(times.isEmpty ? i.toDouble() : times[i].toDouble(), v)
+        else if (breakOnMissing)
+          FlSpot.nullSpot,
   ];
 
   double? get latest {
@@ -431,6 +437,7 @@ Widget buildHistoryLineChart(
   List<LineChartBarData> bars, {
   required List<HistorySeries> series,
   required String Function(double) format,
+
   /// The theme's body text, whose families the tooltip takes. Only the
   /// families: a tooltip has no body's metrics to inherit.
   required TextStyle tooltipFont,

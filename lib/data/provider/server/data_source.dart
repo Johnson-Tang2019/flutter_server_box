@@ -70,23 +70,21 @@ extension ServerStatusHistoryX on ServerStatus {
       diskWrite: diskWrite,
       // The one that is going to be a problem, not the mean of them: a host
       // with two cards is busy because one of them is.
-      gpu: gpus.map((e) => e.utilization).nonNulls.fold<double?>(
-        null,
-        (top, e) => top == null || e > top ? e : top,
-      ),
+      gpu: gpus
+          .map((e) => e.utilization)
+          .nonNulls
+          .fold<double?>(null, (top, e) => top == null || e > top ? e : top),
+      gpus: {for (final gpu in gpus) gpu.id: ?gpu.utilization},
       temp: temps.first,
       temps: {for (final d in temps.devices) d: ?temps.get(d)},
-      diskReads: {
-        for (final d in diskIO.devices) d: ?diskIO.speedBytes(d).$1,
-      },
-      diskWrites: {
-        for (final d in diskIO.devices) d: ?diskIO.speedBytes(d).$2,
-      },
+      diskReads: {for (final d in diskIO.devices) d: ?diskIO.speedBytes(d).$1},
+      diskWrites: {for (final d in diskIO.devices) d: ?diskIO.speedBytes(d).$2},
       netRxs: {
         for (final d in netSpeed.ifaces) d: ?netSpeed.speedInBytesOf(device: d),
       },
       netTxs: {
-        for (final d in netSpeed.ifaces) d: ?netSpeed.speedOutBytesOf(device: d),
+        for (final d in netSpeed.ifaces)
+          d: ?netSpeed.speedOutBytesOf(device: d),
       },
       battery: batteries.firstOrNull?.percent?.toDouble(),
     );

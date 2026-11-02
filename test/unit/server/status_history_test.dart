@@ -102,10 +102,45 @@ void main() {
     expect(h.gpu, [41, null]);
   });
 
+  test('per-GPU history does not switch devices when busiest changes', () {
+    final h = StatusHistory();
+
+    h.add(timeMs: 1, gpu: 75, gpus: const {'nvidia:0': 12, 'nvidia:1': 75});
+    h.add(timeMs: 2, gpu: 80, gpus: const {'nvidia:0': 80, 'nvidia:1': 6});
+    h.add(timeMs: 3, gpu: 8, gpus: const {'nvidia:1': 8});
+
+    expect(h.gpu, [75, 80, 8]);
+    expect(h.gpusByDevice['nvidia:0'], [12, 80, null]);
+    expect(h.gpusByDevice['nvidia:1'], [75, 6, 8]);
+  });
+
+  test('GPU series survive appending agent history before live samples', () {
+    final h = StatusHistory();
+    h.add(timeMs: 100, gpu: 7, gpus: const {'nvidia:0': 7});
+    h.seed(const [StatusHistorySample(timeMs: 10, cpu: 1)]);
+    expect(h.gpusByDevice['nvidia:0'], [null, 7]);
+  });
+
+  test('new GPUs are padded and retired GPUs expire after a full buffer', () {
+    final h = StatusHistory();
+    h.add(timeMs: 1, gpus: const {'a': 1});
+    h.add(timeMs: 2, gpus: const {'a': 2, 'b': 3});
+    expect(h.gpusByDevice['b'], [null, 3]);
+    for (var i = 0; i < StatusHistory.capacity; i++) {
+      h.add(timeMs: i + 3, gpus: const {'b': 4});
+    }
+    expect(h.gpusByDevice.containsKey('a'), isFalse);
+    expect(h.gpusByDevice['b']!.length, h.length);
+    expect(h.gpusByDevice['b'], everyElement(4));
+  });
+
   group('seed', () {
     test('fills an empty buffer', () {
       final h = StatusHistory();
-      h.seed(const [StatusHistorySample(timeMs: 1, cpu: 10), StatusHistorySample(timeMs: 2, cpu: 20)]);
+      h.seed(const [
+        StatusHistorySample(timeMs: 1, cpu: 10),
+        StatusHistorySample(timeMs: 2, cpu: 20),
+      ]);
       expect(h.time.toList(), [1, 2]);
       expect(h.cpu.toList(), [10, 20]);
     });
@@ -130,7 +165,10 @@ void main() {
     test('past the capacity the oldest stored samples go, never live ones', () {
       final h = StatusHistory();
       h.add(timeMs: 1000000, cpu: 5);
-      h.seed([for (var i = 0; i < StatusHistory.capacity; i++) StatusHistorySample(timeMs: i, cpu: 1)]);
+      h.seed([
+        for (var i = 0; i < StatusHistory.capacity; i++)
+          StatusHistorySample(timeMs: i, cpu: 1),
+      ]);
       expect(h.length, StatusHistory.capacity);
       expect(h.time.last, 1000000);
       expect(h.time.first, 1);

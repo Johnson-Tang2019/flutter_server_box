@@ -22,9 +22,10 @@ class MetricDevices {
     required this.subtitle,
     this.alone,
     this.legend,
+    this.label,
   });
 
-  /// Busiest first, which is also the order the picker lists them in.
+  /// Picker order; GPU IDs stay sorted so their line colours stay stable.
   final List<String> names;
 
   /// The samples behind each of [names], as [StatusHistory] kept them.
@@ -45,6 +46,9 @@ class MetricDevices {
   /// A device's line in the legend, where [byDevice] is one of several things
   /// the device has: the network's is its upload. Null for its name.
   final String Function(String)? legend;
+
+  /// Human-readable picker label. The device ID remains the stable selection key.
+  final String Function(String)? label;
 
   /// The devices behind [kind], or null for a metric that has none and for a
   /// machine with only one of them — there is nothing to pick from or to tell
@@ -119,9 +123,35 @@ class MetricDevices {
               '↑ ${ReadingFmt.size(total(ns.sizeOutBytesOf(device: d)))} · '
               '↓ ${ReadingFmt.size(total(ns.sizeInBytesOf(device: d)))}',
         );
+      case ServerMetricKind.gpu:
+        final gpus = [...ss.gpus]..sort((a, b) => a.id.compareTo(b.id));
+        if (gpus.length < 2) return null;
+        final ranked = [
+          ...gpus,
+        ]..sort((a, b) => (b.utilization ?? -1).compareTo(a.utilization ?? -1));
+
+        String labelOf(String id) {
+          final index = gpus.indexWhere((gpu) => gpu.id == id);
+          return index < 0 ? id : 'GPU $index · ${gpus[index].name}';
+        }
+
+        return MetricDevices(
+          names: [for (final gpu in gpus) gpu.id],
+          byDevice: h.gpusByDevice,
+          // Preserve the old default: display the busiest GPU until changed.
+          defaults: [ranked.first.id],
+          subtitle: (id) {
+            final index = gpus.indexWhere((gpu) => gpu.id == id);
+            return index < 0 ? '--' : ReadingFmt.pct(gpus[index].utilization);
+          },
+          legend: labelOf,
+          label: labelOf,
+        );
       case ServerMetricKind.temp:
         final names = [...ss.temps.devices]
-          ..sort((a, b) => (ss.temps.get(b) ?? -1).compareTo(ss.temps.get(a) ?? -1));
+          ..sort(
+            (a, b) => (ss.temps.get(b) ?? -1).compareTo(ss.temps.get(a) ?? -1),
+          );
         if (names.length < 2) return null;
         return MetricDevices(
           names: names,
@@ -147,7 +177,6 @@ class MetricDevices {
       case ServerMetricKind.mem:
       case ServerMetricKind.swap:
       case ServerMetricKind.disk:
-      case ServerMetricKind.gpu:
       case ServerMetricKind.battery:
         return null;
     }
